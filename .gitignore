@@ -27,6 +27,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 data/
+lightning_logs/
+gan_env/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
