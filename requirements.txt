@@ -4,3 +4,5 @@ torchvision
 pytorch-lightning
 numpy
 pandas
+hydra-core==1.1.1
+wandb==0.12.0

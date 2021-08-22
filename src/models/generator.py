@@ -4,14 +4,12 @@ import torch.nn as nn
 class Generator(nn.Module):
     def __init__(
         self,
-        ngpu,
         latent_vector_size: int,
         generator_feature_size: int,
         n_channels: int = 3,
     ):
         super(Generator, self).__init__()
 
-        self.ngpu = ngpu
         self.latent_vector_size = latent_vector_size
         self.generator_feature_size = generator_feature_size
         self.n_channels = n_channels

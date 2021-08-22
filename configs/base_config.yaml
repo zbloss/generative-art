@@ -1,0 +1,28 @@
+data:
+    path_to_image_files: ../../../data/raw/img_align_celeba
+    batch_size: 256
+    num_workers: 0
+    n_channels: 3
+    tensorboard_log_directory: ../../../model_logs
+    log_graph: True
+
+model:
+    latent_vector_size: 100
+    generator_feature_size: 64
+    discriminator_feature_size: 64
+    beta1: 0.5
+    beta2: 0.999
+    model_name: 'celeba-gan'
+
+trainer:
+    precision: 16
+    max_epochs: 10
+    gpus: 1
+    fast_dev_run: False
+    default_root_dir: C:\Users\altoz\Documents\Projects\generative-art\models
+
+early_stop:
+    metric: val_gen_loss
+    patience: 3
+    minimum_delta: 0.001
+    mode: min

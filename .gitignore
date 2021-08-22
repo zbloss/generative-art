@@ -29,6 +29,10 @@ MANIFEST
 data/
 lightning_logs/
 gan_env/
+gen_env/
+outputs/
+
+*.ckpt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
