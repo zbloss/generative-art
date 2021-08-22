@@ -26,7 +26,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-data/
+data/raw/
 lightning_logs/
 gan_env/
 gen_env/
