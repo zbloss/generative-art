@@ -1,20 +1,25 @@
 import time
 import torch
 from models.gan_module import GAN
-from data.data_module import CelebDataModule
+from data.monsters_data_module import MonstersDataModule
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from models.wandb_image_callback import WandbImageCallback
 
 
 @hydra.main(config_path="../configs", config_name="base_config")
 def train_model(cfg : DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
 
-    datamodule = CelebDataModule(data_dir=cfg.data.path_to_image_files, batch_size=cfg.data.batch_size, num_workers=cfg.data.num_workers)
+    datamodule = MonstersDataModule(
+        data_dir=cfg.data.path_to_image_files, 
+        batch_size=cfg.data.batch_size, 
+        num_workers=cfg.data.num_workers,
+        image_size=(cfg.data.image_height, cfg.data.image_width)
+    )
+
     datamodule.setup()
 
     gan_model = GAN(
@@ -28,13 +33,6 @@ def train_model(cfg : DictConfig) -> None:
         device='cuda' if cfg.trainer.gpus>0 else 'cpu'
     )
     gan_model = gan_model.float()
-    tb_logger = TensorBoardLogger(
-        'tb_logs', 
-        name=cfg.model.model_name, 
-        version=time.strftime('%Y%m%dT%H%M%S'),
-        log_graph=cfg.data.log_graph
-    )
-
     wandb_logger = WandbLogger(
         project=cfg.model.model_name, 
         log_model="all", 
@@ -50,9 +48,6 @@ def train_model(cfg : DictConfig) -> None:
             mode=cfg.early_stop.mode
         )
     )
-    # callbacks.append(
-    #     WandbImageCallback(gan_model.validation_z)
-    # )
 
     trainer_params = dict(cfg.trainer)
     trainer_params['logger'] = wandb_logger

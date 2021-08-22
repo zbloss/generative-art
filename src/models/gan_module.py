@@ -8,6 +8,7 @@ from models.discriminator import Discriminator
 from collections import OrderedDict
 import wandb
 
+
 class GAN(LightningModule):
     def __init__(
         self,
@@ -69,7 +70,8 @@ class GAN(LightningModule):
         valid = torch.ones(batch.size(0), 1)
         valid = valid.type_as(batch)
 
-        real_loss = self.adversarial_loss(self.discriminator(batch), valid)
+        discriminator_prediction = self.discriminator(batch)
+        real_loss = self.adversarial_loss(discriminator_prediction, valid)
 
         # how well can it label as fake?
         fake = torch.zeros(batch.size(0), 1)
@@ -139,7 +141,7 @@ class GAN(LightningModule):
 
     def on_epoch_end(self):
         # log sampled images
-        sample_imgs = self(self.validation_z)
+        sample_imgs = self(self.validation_z)[:8]
         grid = torchvision.utils.make_grid(sample_imgs)
         self.logger.experiment.log({"generated_images": [wandb.Image(grid, caption=f'Epoch: {self.current_epoch}\nValidation Images')]})
 

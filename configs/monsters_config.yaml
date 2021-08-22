@@ -1,0 +1,23 @@
+defaults:
+    - base_config
+
+data:
+    path_to_image_files: D:\data\generative-art\data\raw\monsters
+    batch_size: 128
+    image_height: 256
+    image_width: 256
+
+model:
+    latent_vector_size: 16
+    generator_feature_size: 128
+    discriminator_feature_size: 128
+    model_name: 'monsters-gan'
+
+trainer:
+    default_root_dir: C:\Users\altoz\Documents\Projects\generative-art\models\monsters
+    min_epochs: 8
+    max_epochs: 500
+
+early_stop:
+    metric: val_gen_loss
+    patience: 3

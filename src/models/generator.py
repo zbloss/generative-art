@@ -67,6 +67,8 @@ class Generator(nn.Module):
             padding=(1,1), 
             bias=False
         )
+        self.batch_norm5 = nn.BatchNorm2d(self.n_channels)
+        
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
 
@@ -91,6 +93,8 @@ class Generator(nn.Module):
         x = self.relu(x)
 
         x = self.conv5(x)
+        x = self.batch_norm5(x)
+
         x = self.tanh(x)
 
         return x

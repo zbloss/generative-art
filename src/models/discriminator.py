@@ -1,4 +1,5 @@
 import torch.nn as nn
+from einops.layers.torch import Reduce
 
 
 class Discriminator(nn.Module):
@@ -45,9 +46,10 @@ class Discriminator(nn.Module):
         self.conv4 = nn.Conv2d(self.discriminator_feature_size * 8, 1, 4, 1, 0, bias=False)
         
         self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
+        self.max_pooling = Reduce('b c h w -> b c 1 1', 'max')
 
     def forward(self, x):
-
+        
         x = self.conv(x)
         x = self.leaky_relu(x)
 
@@ -64,5 +66,6 @@ class Discriminator(nn.Module):
         x = self.leaky_relu(x)
 
         x = self.conv4(x)
+        x = self.max_pooling(x)
 
         return x
