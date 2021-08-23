@@ -33,7 +33,7 @@ class MonstersDataset(Dataset):
         ])
         jpg_image_files = glob(os.path.join(self.data_dir, '**/*.jpg'), recursive=True)
         png_image_files = glob(os.path.join(self.data_dir, '**/*.png'), recursive=True)
-        self.image_files = png_image_files #jpg_image_files #+ png_image_files
+        self.image_files = jpg_image_files + png_image_files
 
     def __len__(self):
         return len(self.image_files)

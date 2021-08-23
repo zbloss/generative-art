@@ -24,12 +24,27 @@ class GAN(LightningModule):
     ):
         super().__init__()
         
-        self.generator = Generator(latent_vector_size=latent_vector_size, generator_feature_size=generator_feature_size, n_channels=n_channels).to(device)
-        self.discriminator = Discriminator(discriminator_feature_size=discriminator_feature_size, n_channels=n_channels).to(device)
+        self.generator = Generator(
+            latent_vector_size=latent_vector_size, 
+            generator_feature_size=generator_feature_size, 
+            n_channels=n_channels
+        ).to(device)
+
+        self.discriminator = Discriminator(
+            discriminator_feature_size=discriminator_feature_size, 
+            n_channels=n_channels
+        ).to(device)
+        
         self.generator.apply(self.weights_init)
         self.discriminator.apply(self.weights_init)
 
-        self.validation_z = torch.randn(batch_size, latent_vector_size, 1, 1).to(next(self.generator.parameters()).device)
+        self.validation_z = torch.randn(
+            batch_size, 
+            latent_vector_size, 
+            1, 
+            1
+        ).to(next(self.generator.parameters()).device)
+        
         self.example_input_array = self.validation_z
         self.save_hyperparameters()
 
@@ -69,7 +84,6 @@ class GAN(LightningModule):
 
         valid = torch.ones(batch.size(0), 1)
         valid = valid.type_as(batch)
-
         discriminator_prediction = self.discriminator(batch)
         real_loss = self.adversarial_loss(discriminator_prediction, valid)
 
