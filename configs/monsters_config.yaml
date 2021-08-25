@@ -14,8 +14,8 @@ model:
     model_name: 'monsters-gan'
 
 trainer:
-    default_root_dir: C:\Users\altoz\Documents\Projects\generative-art\models\monsters
-    min_epochs: 100
+    default_root_dir: D:\models\generative-art\monsters
+    min_epochs: 130
     max_epochs: 500
 
 early_stop:
