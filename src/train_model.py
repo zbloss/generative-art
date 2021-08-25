@@ -54,7 +54,7 @@ def train_model(cfg : DictConfig) -> None:
     trainer_params = dict(cfg.trainer)
     trainer_params['logger'] = wandb_logger
     trainer_params['callbacks'] = callbacks
-    trainer_params['resume_from_checkpoint'] = 'C:/Users/altoz/Documents/Projects/generative-art/models/monsters/monsters-gan/33sttony/checkpoints/epoch=76-step=149225.ckpt'
+    trainer_params['resume_from_checkpoint'] = 'D:/models/generative-art/monsters/monsters-gan/2eiz8hee/checkpoints/epoch=129-step=251939.ckpt'
     print(trainer_params)
     trainer = Trainer(**trainer_params)
     wandb_logger.watch(gan_model)

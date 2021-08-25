@@ -15,10 +15,10 @@ model:
 
 trainer:
     default_root_dir: D:\models\generative-art\monsters
-    min_epochs: 130
+    min_epochs: 200
     max_epochs: 500
 
 early_stop:
     metric: val_gen_loss
-    patience: 3
+    patience: 10
     minimum_delta: 0.0001
