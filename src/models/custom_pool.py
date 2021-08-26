@@ -12,7 +12,6 @@ class CustomPool(nn.Module):
         self.mode = mode
         self.dim = dim
 
-
     def forward(self, x: torch.Tensor):
         """
         In the forward function we accept a Tensor of input data and we return
@@ -20,11 +19,11 @@ class CustomPool(nn.Module):
         """
 
         out = None
-        if self.mode == 'mean':
+        if self.mode == "mean":
             out = x.mean(self.dim)
-        elif self.mode == 'max':
+        elif self.mode == "max":
             out = torch.amax(x, self.dim)
-        elif self.mode == 'min':
+        elif self.mode == "min":
             out = torch.amin(x, self.dim)
 
         return out

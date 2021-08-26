@@ -3,10 +3,7 @@ import requests
 
 
 def query_unsplash(
-    api_key: str,
-    search_term: str,
-    max_number_of_images: int = 30,
-    page_number: int = 1
+    api_key: str, search_term: str, max_number_of_images: int = 30, page_number: int = 1
 ) -> dict:
     """
     Given a search term, queries pixabay for free-use images, returning less than
@@ -25,10 +22,9 @@ def query_unsplash(
         "client_id": api_key,
         "query": url_encoded_search_term,
         "per_page": max_number_of_images,
-        "page": page_number
+        "page": page_number,
     }
 
-    response = requests.get(url=url, params=params)   
+    response = requests.get(url=url, params=params)
     data = response.json()
     return data
-    

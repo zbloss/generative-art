@@ -19,11 +19,15 @@ def download_image(
     response_code = 200
 
     try:
-        SUPPORTED_FILE_EXTENSIONS = ['png', 'jpg', 'jpeg']
-        native_file_extension = image_url.split('.')[-1]
-        native_file_extension = native_file_extension if native_file_extension in SUPPORTED_FILE_EXTENSIONS else None
+        SUPPORTED_FILE_EXTENSIONS = ["png", "jpg", "jpeg"]
+        native_file_extension = image_url.split(".")[-1]
+        native_file_extension = (
+            native_file_extension
+            if native_file_extension in SUPPORTED_FILE_EXTENSIONS
+            else None
+        )
 
-        file_extension = 'png'
+        file_extension = "png"
         if use_native_file_extension == True:
             if native_file_extension is not None:
                 file_extension = native_file_extension
@@ -31,13 +35,14 @@ def download_image(
         if not os.path.exists(prefix):
             os.makedirs(prefix)
 
-        filename = f'{filename}.{file_extension}'
-
+        filename = f"{filename}.{file_extension}"
 
         img_response = requests.get(image_url, stream=True)
-        assert img_response.status_code == 200, f"Unable to download the image: {img_response.status_code}"
+        assert (
+            img_response.status_code == 200
+        ), f"Unable to download the image: {img_response.status_code}"
 
-        with open(os.path.join(prefix, filename), 'wb') as img_file:
+        with open(os.path.join(prefix, filename), "wb") as img_file:
             shutil.copyfileobj(img_response.raw, img_file)
             img_file.close()
 
