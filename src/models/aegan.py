@@ -1,29 +1,10 @@
-import os
-import json
-import sys
-import time
-
 import torch
+import torchvision
 from torch import nn
 from torch import optim
-import torch.nn.functional as F
-
-import torchvision as tv
-from torchvision.datasets import ImageFolder
-from torch.utils.data import DataLoader
-from PIL import Image
-import numpy as np
-
 from pytorch_lightning import LightningModule
 from collections import OrderedDict
 import wandb
-
-
-EPS = 1e-6
-ALPHA_RECONSTRUCT_IMAGE = 1
-ALPHA_RECONSTRUCT_LATENT = 0.5
-ALPHA_DISCRIMINATE_IMAGE = 0.005
-ALPHA_DISCRIMINATE_LATENT = 0.1
 
 
 class Generator(nn.Module):
@@ -39,6 +20,7 @@ class Generator(nn.Module):
         image_size: int = 128,
         projection_widths: list = [8, 8, 8, 8, 8, 8, 8],
         out_channels: int = 16,
+        device: str = 'cuda'
     ):
         """Initialize generator.
         Args:
@@ -46,7 +28,6 @@ class Generator(nn.Module):
         """
         super().__init__()
         self.latent_vector_size = latent_vector_size
-        self._init_modules()
         self.n_channels = n_channels
         self.image_size = image_size
         if type(self.image_size) == tuple:
@@ -54,6 +35,7 @@ class Generator(nn.Module):
 
         self.projection_widths = projection_widths
         self.out_channels = out_channels
+        self.device = device
         self._init_modules()
 
     def build_colorspace(self, input_dim: int, output_dim: int):
@@ -214,9 +196,8 @@ class Generator(nn.Module):
         self,
         projection_tensor: torch.Tensor,
         intermediate_tensor: torch.Tensor,
-        resize_dim: tuple = (-1, self.out_channels, 1, 1),
     ):
-
+        resize_dim = (-1, self.out_channels, 1, 1)
         # colorspaces
         r_space = self.colorspace_r(projection_tensor).view(resize_dim)
         g_space = self.colorspace_g(projection_tensor).view(resize_dim)
@@ -263,6 +244,7 @@ class Generator(nn.Module):
                 intermediate = torch.nn.functional.pixel_shuffle(
                     input=intermediate, upscale_factor=2
                 )
+                
             intermediate = conv(intermediate)
             projection_2d = upscaling(projection_2d)
 
@@ -281,25 +263,24 @@ class Encoder(nn.Module):
 
     def __init__(
         self,
-        device: str = "cpu",
         latent_vector_size: int = 8,
         down_channels: list = [3, 64, 128, 256, 512],
         up_channels: list = [256, 128, 64, 64, 64],
         final_down_channels: list = [64 + 3, 64, 64, 64, 64],
-        scale_factors: list = [2, 2, 2, 1]
+        scale_factors: list = [2, 2, 2, 1],
+        device: str = 'cuda'
     ):
-        """Initialize encoder.
-        Args:
-            device: chich GPU or CPU to use.
-            latent_vector_size: output dimension
+        """
+        Initialize encoder.
+        
         """
         super().__init__()
-        self.device = device
         self.latent_vector_size = latent_vector_size
         self.down_channels = down_channels
         self.up_channels = up_channels
         self.final_down_channels = final_down_channels
         self.scale_factors = scale_factors
+        self.device = device
 
         self._init_modules()
 
@@ -396,9 +377,8 @@ class Encoder(nn.Module):
     def forward(self, input_tensor: torch.Tensor):
         """Forward pass; map latent vectors to samples."""
 
-        #rv = torch.randn(input_tensor.size(), device=self.device) * 0.02
-        
-        rv = torch.randn(input_tensor.size()) * 0.02
+
+        rv = torch.randn(input_tensor.size(), device=self.device) * 0.02
         intermediate = input_tensor + rv
         intermediates = [intermediate]
         for module in self.down:
@@ -428,18 +408,17 @@ class Encoder(nn.Module):
         return projected
 
 
-
 class DiscriminatorImage(nn.Module):
     """A discriminator for discerning real from generated images.
     Input shape: (?, 3, 96, 96)
     Output shape: (?, 1)
     """
 
-    def __init__(self, device="cpu", down_channels: list = [3, 64, 128, 256, 512]):
+    def __init__(self, down_channels: list = [3, 64, 128, 256, 512], device: str = 'cuda'):
         """Initialize the discriminator."""
         super().__init__()
-        self.device = device
         self.down_channels = down_channels
+        self.device = device
         self._init_modules()
 
     def _init_modules(self):
@@ -489,13 +468,13 @@ class DiscriminatorLatent(nn.Module):
     Output shape: (?, 1)
     """
 
-    def __init__(self, latent_vector_size=8, device="cpu", depth: int = 7, width: int = 8):
+    def __init__(self, latent_vector_size=8, depth: int = 7, width: int = 8, device: str = 'cuda'):
         """Initialize the Discriminator."""
         super().__init__()
         self.latent_vector_size = latent_vector_size
-        self.device = device
         self.depth = depth
         self.width = width
+        self.device = device
         self._init_modules()
 
     def _init_modules(self):
@@ -515,7 +494,9 @@ class DiscriminatorLatent(nn.Module):
             )
 
         self.classifier = nn.ModuleList()
-        self.classifier.append(nn.Linear(self.depth * self.width + self.latent_vector_size, 1))
+        self.classifier.append(
+            nn.Linear(self.depth * self.width + self.latent_vector_size, 1)
+        )
         self.classifier.append(nn.Sigmoid())
 
     def forward(self, input_tensor: torch.Tensor):
@@ -527,10 +508,10 @@ class DiscriminatorLatent(nn.Module):
             rv = torch.randn(projection.size(), device=self.device) * 0.02 + 1
             projection *= rv
             last = torch.cat((last, projection), -1)
-        
+
         for module in self.classifier:
             last = module(last)
-        
+
         return last
 
 
@@ -538,79 +519,74 @@ class AEGAN(LightningModule):
     """An Autoencoder Generative Adversarial Network for making pokemon."""
 
     def __init__(
-        self, 
-        latent_vector_size, 
-        noise_fn, 
-        dataloader, 
-        batch_size: int = 32, 
-        device: str = "cpu",
-        eps: float = 1e-6,
+        self,
+        latent_vector_size,
+        n_channels: int = 3,
+        batch_size: int = 32,
+        image_size: int = 128,
+        projection_widths: list = [8, 8, 8, 8, 8, 8, 8],
+        out_channels: int = 16,
         image_reconstruction_alpha: float = 1.0,
         latent_reconstruction_alpha: float = 0.5,
         image_discriminator_alpha: float = 0.005,
-        latent_discriminator_alpha: float = 0.1
+        latent_discriminator_alpha: float = 0.1,
+        down_channels: list = [3, 64, 128, 256, 512],
+        up_channels: list = [256, 128, 64, 64, 64],
+        final_down_channels: list = [64 + 3, 64, 64, 64, 64],
+        scale_factors: list = [2, 2, 2, 1],
+        depth: int = 7,
+        width: int = 8,
+        device: str = 'cuda'
     ):
         super().__init__()
-        """Initialize the AEGAN.
-        Args:
-            latent_vector_size: latent-space dimension. Must be divisible by 4.
-            noise_fn: function f(num: int) -> pytorch tensor, (latent vectors)
-            dataloader: a pytorch dataloader for loading images
-            batch_size: training batch size. Must match that of dataloader
-            device: cpu or CUDA
+        """
+        Initialize the AEGAN
+        
         """
 
         assert latent_vector_size % 4 == 0
         self.latent_vector_size = latent_vector_size
-        self.device = device
-        self.noise_fn = noise_fn
-        self.dataloader = dataloader
         self.batch_size = batch_size
 
-        self.criterion_gen = nn.BCELoss()
+        #self.criterion_gen = nn.BCELoss()
+        self.criterion_gen = nn.BCEWithLogitsLoss()
         self.criterion_recon_image = nn.L1Loss()
         self.criterion_recon_latent = nn.MSELoss()
 
         self.target_ones = torch.ones((batch_size, 1), device=device)
         self.target_zeros = torch.zeros((batch_size, 1), device=device)
 
-        self.generator = Generator(latent_vector_size=self.latent_vector_size)
-        #self.generator = self.generator.to(self.device)
-        self.optim_g = optim.Adam(
-            self.generator.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-8
+        self.generator = Generator(
+            latent_vector_size=self.latent_vector_size,
+            n_channels=n_channels,
+            image_size=image_size,
+            projection_widths=projection_widths,
+            out_channels=out_channels,
+            device=device
         )
 
         self.encoder = Encoder(
-            latent_vector_size=self.latent_vector_size, device=self.device
-        )
-        #self.encoder = self.encoder.to(self.device)
-        self.optim_e = optim.Adam(
-            self.encoder.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-8
-        )
-
-        self.discriminator_image = DiscriminatorImage(device=self.device)
-        #self.discriminator_image = self.discriminator_image.to(self.device)
-        self.optim_di = optim.Adam(
-            self.discriminator_image.parameters(),
-            lr=1e-4,
-            betas=(0.5, 0.999),
-            weight_decay=1e-8,
-        )
-        self.discriminator_latent = DiscriminatorLatent(
             latent_vector_size=self.latent_vector_size,
-            device=self.device,
-        )
-        #self.discriminator_latent = self.discriminator_latent.to(self.device)
-        self.optim_dl = optim.Adam(
-            self.discriminator_latent.parameters(),
-            lr=1e-4,
-            betas=(0.5, 0.999),
-            weight_decay=1e-8,
+            down_channels=down_channels,
+            up_channels=up_channels,
+            final_down_channels=final_down_channels,
+            scale_factors=scale_factors,
+            device=device
         )
 
-        self.validation_z = torch.randn(batch_size, latent_vector_size, 1, 1).to(
-            next(self.generator.parameters()).device
+        self.discriminator_image = DiscriminatorImage(
+            down_channels=down_channels, 
+            device=device
         )
+
+        self.discriminator_latent = DiscriminatorLatent(
+            latent_vector_size=self.latent_vector_size, 
+            depth=depth, 
+            width=width, 
+            device=device
+        )
+
+        self.validation_z = torch.randn(batch_size, latent_vector_size).to(self.device)
         self.image_reconstruction_alpha = image_reconstruction_alpha
         self.latent_reconstruction_alpha = latent_reconstruction_alpha
         self.image_discriminator_alpha = image_discriminator_alpha
@@ -619,25 +595,14 @@ class AEGAN(LightningModule):
         self.example_input_array = self.validation_z
         self.save_hyperparameters()
 
-
-    def generate_samples(self, latent_vec=None, num=None):
-        """Sample images from the generator.
-        Images are returned as a 4D tensor of values between -1 and 1.
-        Dimensions are (number, channels, height, width). Returns the tensor
-        on cpu.
-        Args:
-            latent_vec: A pytorch latent vector or None
-            num: The number of samples to generate if latent_vec is None
-        If latent_vec and num are None then use self.batch_size
-        random latent vectors.
-        """
-        num = self.batch_size if num is None else num
+    def generate_samples(self):
+        
         with torch.no_grad():
-            samples = self.generator(self.validation_z)
+            samples = self.generator(self.random_noise())
         return samples
 
     def random_noise(self):
-        return torch.randn((self.batch_size, self.latent_vector_size), device=device)
+        return torch.randn((self.batch_size, self.latent_vector_size), device=self.device)
 
     def forward(self, noise: torch.Tensor):
         return self.generator(noise)
@@ -652,8 +617,12 @@ class AEGAN(LightningModule):
         batch_encoded_prediction = self(batch_encoded)
         noise_prediction_encoded = self.encoder(noise_prediction)
 
-        return noise_prediction, batch_encoded, batch_encoded_prediction, noise_prediction_encoded
-
+        return (
+            noise_prediction,
+            batch_encoded,
+            batch_encoded_prediction,
+            noise_prediction_encoded,
+        )
 
     def _generator_step(self, batch: torch.Tensor, noise: torch.Tensor):
         """
@@ -661,97 +630,153 @@ class AEGAN(LightningModule):
         """
 
         # Generator & Encoder predictions
-        noise_prediction, \
-        batch_encoded, \
-        batch_encoded_prediction, \
-        noise_prediction_encoded = self._generator_predictions(batch, noise)
+        (
+            noise_prediction,
+            batch_encoded,
+            batch_encoded_prediction,
+            noise_prediction_encoded,
+        ) = self._generator_predictions(batch, noise)
 
         # Discriminator predictions
         noise_prediction_confidence = self.discriminator_image(noise_prediction)
         batch_encoded_confidence = self.discriminator_latent(batch_encoded)
-        batch_encoded_prediction_confidence = self.discriminator_image(batch_encoded_prediction)
-        noise_prediction_encoded_confidence = self.discriminator_latent(noise_prediction_encoded)
+        batch_encoded_prediction_confidence = self.discriminator_image(
+            batch_encoded_prediction
+        )
+        noise_prediction_encoded_confidence = self.discriminator_latent(
+            noise_prediction_encoded
+        )
 
         # Computing losses
-        noise_prediction_loss = self.criterion_gen(noise_prediction_confidence, self.target_ones)
-        batch_encoded_loss = self.criterion_gen(batch_encoded_confidence, self.target_ones)
-        batch_encoded_prediction_loss = self.criterion_gen(batch_encoded_prediction_confidence, self.target_ones)
-        noise_prediction_encoded_loss = self.criterion_gen(noise_prediction_encoded_confidence, self.target_ones)
+        noise_prediction_loss = self.criterion_gen(
+            noise_prediction_confidence, self.target_ones
+        )
+        batch_encoded_loss = self.criterion_gen(
+            batch_encoded_confidence, self.target_ones
+        )
+        batch_encoded_prediction_loss = self.criterion_gen(
+            batch_encoded_prediction_confidence, self.target_ones
+        )
+        noise_prediction_encoded_loss = self.criterion_gen(
+            noise_prediction_encoded_confidence, self.target_ones
+        )
 
         # Image reconstruction loss
-        batch_reconstruction_loss = self.criterion_recon_image(batch_encoded_prediction, batch) * self.image_reconstruction_alpha
-        noise_reconstruction_loss = self.criterion_recon_latent(noise_prediction_encoded, noise) * self.latent_reconstruction_alpha
+        batch_reconstruction_loss = (
+            self.criterion_recon_image(batch_encoded_prediction, batch)
+            * self.image_reconstruction_alpha
+        )
+        noise_reconstruction_loss = (
+            self.criterion_recon_latent(noise_prediction_encoded, noise)
+            * self.latent_reconstruction_alpha
+        )
 
         # Combine loss metrics
-        batch_loss = ((noise_prediction_loss + batch_encoded_prediction_loss) / 2) * self.image_discriminator_alpha
-        noise_loss = ((batch_encoded_loss + noise_prediction_encoded_loss) / 2) * self.latent_discriminator_alpha
+        batch_loss = (
+            (noise_prediction_loss + batch_encoded_prediction_loss) / 2
+        ) * self.image_discriminator_alpha
+        noise_loss = (
+            (batch_encoded_loss + noise_prediction_encoded_loss) / 2
+        ) * self.latent_discriminator_alpha
 
-        return batch_reconstruction_loss, noise_reconstruction_loss, batch_loss, noise_loss
+        return (
+            batch_reconstruction_loss,
+            noise_reconstruction_loss,
+            batch_loss,
+            noise_loss,
+        )
 
     def _discriminator_step(self, batch: torch.Tensor, noise: torch.Tensor):
         """
         Computes the discriminator steps
 
         """
-        with torch.no_grad():
 
-            # Generator & Encoder predictions
-            noise_prediction, \
-            batch_encoded, \
-            batch_encoded_prediction, \
-            noise_prediction_encoded = self._generator_predictions(batch, noise)
+        # Generator & Encoder predictions
+        (
+            noise_prediction,
+            batch_encoded,
+            batch_encoded_prediction,
+            noise_prediction_encoded,
+        ) = self._generator_predictions(batch, noise)
 
         batch_confidence = self.discriminator_image(batch)
         noise_prediction_confidence = self.discriminator_image(noise_prediction)
-        batch_encoded_prediction_confidence = self.discriminator_image(batch_encoded_prediction)
-        
+        batch_encoded_prediction_confidence = self.discriminator_image(
+            batch_encoded_prediction
+        )
+
         noise_confidence = self.discriminator_latent(noise)
         batch_encoded_condfidence = self.discriminator_latent(batch_encoded)
-        noise_prediction_encoded_confidence = self.discriminator_latent(noise_prediction_encoded)
+        noise_prediction_encoded_confidence = self.discriminator_latent(
+            noise_prediction_encoded
+        )
 
         # Overall losses
         batch_loss = 2 * self.criterion_gen(batch_confidence, self.target_ones)
-        noise_prediction_loss = self.criterion_gen(noise_prediction_confidence, self.target_zeros)
-        batch_encoded_prediction_loss = self.criterion_gen(batch_encoded_condfidence, self.target_zeros)
+        noise_prediction_loss = self.criterion_gen(
+            noise_prediction_confidence, self.target_zeros
+        )
+        batch_encoded_prediction_loss = self.criterion_gen(
+            batch_encoded_prediction_confidence, self.target_zeros
+        )
 
         noise_loss = 2 * self.criterion_gen(noise_confidence, self.target_ones)
-        batch_encoded_loss = self.criterion_gen(batch_encoded_condfidence, self.target_zeros)
-        noise_prediction_encoded_loss = self.criterion_gen(noise_prediction_encoded_confidence, self.target_zeros)
-                    
-        loss_images = (batch_loss + noise_prediction_loss + batch_encoded_prediction_loss) / 4
-        loss_latent = (noise_loss + batch_encoded_loss + noise_prediction_encoded_confidence) / 4
+        batch_encoded_loss = self.criterion_gen(
+            batch_encoded_condfidence, self.target_zeros
+        )
+        noise_prediction_encoded_loss = self.criterion_gen(
+            noise_prediction_encoded_confidence, self.target_zeros
+        )
+
+        loss_images = (
+            batch_loss + noise_prediction_loss + batch_encoded_prediction_loss
+        ) / 4
+        loss_latent = (
+            noise_loss + batch_encoded_loss + noise_prediction_encoded_loss
+        ) / 4
         return loss_images, loss_latent
-        
 
     def generator_step(self, batch: torch.Tensor, mode: str):
-        
-        noise = self.random_noise()
 
+        noise = self.random_noise()
+        
         # Generator Step
-        batch_reconstruction_loss, noise_reconstruction_loss, batch_loss, noise_loss = self._generator_step(batch, noise)
-        losses = torch.stack([batch_reconstruction_loss, batch_reconstruction_loss, batch_loss, noise_loss])
+        (
+            batch_reconstruction_loss,
+            noise_reconstruction_loss,
+            batch_loss,
+            noise_loss,
+        ) = self._generator_step(batch, noise)
+        losses = torch.stack(
+            [
+                batch_reconstruction_loss,
+                batch_reconstruction_loss,
+                batch_loss,
+                noise_loss,
+            ]
+        )
         loss = torch.sum(losses)
 
-        self.log(f'{mode}_batch_reconstruction_loss', batch_reconstruction_loss)
-        self.log(f'{mode}_noise_reconstruction_loss', noise_reconstruction_loss)
-        self.log(f'{mode}_batch_loss', batch_loss)
-        self.log(f'{mode}_noise_loss', noise_loss)
-        self.log(f'{mode}_generator_loss', loss)
+        self.log(f"{mode}_batch_reconstruction_loss", batch_reconstruction_loss)
+        self.log(f"{mode}_noise_reconstruction_loss", noise_reconstruction_loss)
+        self.log(f"{mode}_batch_loss", batch_loss)
+        self.log(f"{mode}_noise_loss", noise_loss)
+        self.log(f"{mode}_generator_loss", loss)
 
         return loss
 
     def discriminator_step(self, batch: torch.Tensor, mode: str):
-        
+
         noise = self.random_noise()
         loss_images, loss_latent = self._discriminator_step(batch, noise)
         loss = loss_images + loss_latent
 
-        self.log(f'{mode}_loss_images', loss_images)
-        self.log(f'{mode}_loss_latent', loss_latent)
-        self.log(f'{mode}_discriminator_loss', loss)
+        self.log(f"{mode}_loss_images", loss_images)
+        self.log(f"{mode}_loss_latent", loss_latent)
+        self.log(f"{mode}_discriminator_loss", loss)
 
         return loss
-
 
     def _step(self, batch, batch_idx, optimizer_idx, mode: str):
         """
@@ -763,42 +788,58 @@ class AEGAN(LightningModule):
         if optimizer_idx == None:
             optimizer_idx = 0
 
-
         # generator
-        if optimizer_idx == 0:
-
+        if optimizer_idx % 2 == 0:
             loss = self.generator_step(batch, mode)
 
         # discriminator
-        if optimizer_idx == 1:
+        if optimizer_idx % 2 == 1:
             loss = self.discriminator_step(batch, mode)
-            
+
         return loss
-    
+
     def training_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self._step(batch, batch_idx, optimizer_idx, mode="train")
+        self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self._step(batch, batch_idx, optimizer_idx, mode="val")
+        self.log('val_loss', loss)
         return loss
 
     def test_step(self, batch, batch_idx, optimizer_idx=None):
         loss = self._step(batch, batch_idx, optimizer_idx, mode="test")
+        self.log('test_loss', loss)
         return loss
 
     def configure_optimizers(self):
-        lr = self.hparams.learning_rate
-        b1 = self.hparams.beta1
-        b2 = self.hparams.beta2
+        optim_g = optim.Adam(
+            self.generator.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-8
+        )
+        optim_e = optim.Adam(
+            self.encoder.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-8
+        )
 
-        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
-        return [opt_g, opt_d], []
+        optim_di = optim.Adam(
+            self.discriminator_image.parameters(),
+            lr=1e-4,
+            betas=(0.5, 0.999),
+            weight_decay=1e-8,
+        )
+
+        optim_dl = optim.Adam(
+            self.discriminator_latent.parameters(),
+            lr=1e-4,
+            betas=(0.5, 0.999),
+            weight_decay=1e-8,
+        )
+
+        return [optim_g, optim_e, optim_di, optim_dl], []
 
     def on_epoch_end(self):
         # log sampled images
-        sample_imgs = self(self.validation_z)[:8]
+        sample_imgs = self.generate_samples()[:8]
         grid = torchvision.utils.make_grid(sample_imgs)
         self.logger.experiment.log(
             {

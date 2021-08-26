@@ -3,9 +3,9 @@ defaults:
 
 data:
     path_to_image_files: D:\data\generative-art\data\raw\monsters
-    batch_size: 8
-    image_height: 256
-    image_width: 256
+    batch_size: 32
+    image_height: 96
+    image_width: 96
 
 model:
     latent_vector_size: 16
@@ -15,10 +15,10 @@ model:
 
 trainer:
     default_root_dir: D:\models\generative-art\monsters
-    min_epochs: 200
-    max_epochs: 500
+    min_epochs: 100
+    max_epochs: 200
 
 early_stop:
-    metric: val_gen_loss
-    patience: 10
-    minimum_delta: 0.0001
+    metric: val_loss
+    patience: 3
+    minimum_delta: 0.001

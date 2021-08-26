@@ -30,7 +30,9 @@ class MonstersDataset(Dataset):
         self.transformation_stack = transforms.Compose(
             [
                 transforms.Resize(image_size),
-                transforms.CenterCrop(image_size),
+                transforms.transforms.RandomAffine(0, translate=(5/96, 5/96), fill=(255,255,255)),
+                transforms.transforms.ColorJitter(hue=0.5),
+                transforms.transforms.RandomHorizontalFlip(p=0.5),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ]
@@ -101,14 +103,24 @@ class MonstersDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
+            shuffle=True,
+            drop_last=True
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+            self.val_dataset, 
+            batch_size=self.batch_size, 
+            num_workers=self.num_workers,
+            shuffle=True,
+            drop_last=True
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+            self.test_dataset, 
+            batch_size=self.batch_size, 
+            num_workers=self.num_workers,
+            shuffle=False,
+            drop_last=True
         )
