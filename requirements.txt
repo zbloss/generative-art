@@ -7,3 +7,4 @@ pandas
 hydra-core==1.1.1
 wandb==0.12.0
 tqdm
+selenium==3.141.0

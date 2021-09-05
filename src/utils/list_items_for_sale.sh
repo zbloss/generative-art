@@ -1,0 +1,1 @@
+browser.execute_script('''window.open("http://bings.com","_blank");''')
