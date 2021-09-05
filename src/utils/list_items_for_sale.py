@@ -12,12 +12,15 @@ options = Options()
 options.add_argument("--disable-infobars")
 options.add_argument("--enable-file-cookies")
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
-options.add_extension('C:/Users/altoz/Downloads/coinbase_wallet.crx')
+options.add_extension('~/Downloads/coinbase_wallet.crx')
 browser = Chrome(options=options)
 browser.get('https://opensea.io/')
 
 
 x = input("Please log in to your ETH wallet, then click [ENTER] to continue")
+
+
+
 while True:
     try:
         browser.get('https://opensea.io/assets/monsters-evolution?collectionSlug=monsters-evolution&search[sortAscending]=false&search[sortBy]=LISTING_DATE')
