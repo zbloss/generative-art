@@ -10,7 +10,7 @@ def logger(name, ten):
     print(f"{name}: {ten}")
 
 
-@hydra.main(config_path="../../configs", config_name="monsters_config")
+@hydra.main(config_path="../../configs", config_name="sol_ar_system_config")
 def convert_rgba_to_rgb(cfg: DictConfig) -> None:
 
     png_image_files = glob(

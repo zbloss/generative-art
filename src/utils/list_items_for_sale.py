@@ -8,6 +8,7 @@ import time
 from tqdm.notebook import tqdm
 
 
+
 options = Options()
 options.add_argument("--disable-infobars")
 options.add_argument("--enable-file-cookies")

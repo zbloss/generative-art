@@ -1,0 +1,24 @@
+defaults:
+    - base_config
+
+data:
+    path_to_image_files: D:\data\generative-art\data\raw\sol-ar-system
+    batch_size: 4
+    image_height: 1024
+    image_width: 1024
+
+model:
+    latent_vector_size: 16
+    generator_feature_size: 128
+    discriminator_feature_size: 128
+    model_name: 'sol-ar-system-gan'
+
+trainer:
+    default_root_dir: D:\models\generative-art\sol-ar-system
+    min_epochs: 100
+    max_epochs: 200
+
+early_stop:
+    metric: val_loss
+    patience: 3
+    minimum_delta: 0.001

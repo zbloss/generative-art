@@ -2,7 +2,7 @@ import time
 import torch
 from models.aegan import AEGAN
 from models.gan_module import GAN
-from data.monsters_data_module import MonstersDataModule
+from data.data_module import DataModule
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -14,11 +14,11 @@ def logger(name, ten):
     print(f"{name}: {ten}")
 
 
-@hydra.main(config_path="../configs", config_name="monsters_config")
+@hydra.main(config_path="../configs", config_name="sol_ar_system_config")
 def train_model(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
 
-    datamodule = MonstersDataModule(
+    datamodule = DataModule(
         data_dir=cfg.data.path_to_image_files,
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
@@ -29,7 +29,7 @@ def train_model(cfg: DictConfig) -> None:
     gan_model = AEGAN(
         latent_vector_size=cfg.model.latent_vector_size,
         batch_size=cfg.data.batch_size,
-        image_size=96
+        image_size=cfg.data.image_height
     )
     gan_model = gan_model.float()
             

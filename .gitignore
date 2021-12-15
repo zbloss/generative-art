@@ -4,6 +4,7 @@ outputs/
 gen_env/
 gan_env/
 src/models/__pycache__/
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

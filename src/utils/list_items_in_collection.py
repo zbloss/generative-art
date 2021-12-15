@@ -9,7 +9,6 @@ from tqdm import tqdm
 import time
 import requests
 
-
 url = "https://api.opensea.io/api/v1/assets"
 permalinks = []
 for offset in tqdm(range(0, 1100, 50)):
